@@ -9,32 +9,26 @@ import kikuke.appleauth.auth.exception.AppleAuthServiceException;
 import kikuke.appleauth.jwt.JWTParser;
 import kikuke.appleauth.jwt.dto.ParsedJWT;
 import lombok.RequiredArgsConstructor;
-import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
-import org.bouncycastle.openssl.PEMParser;
-import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
-import java.io.Reader;
-import java.io.StringReader;
-import java.io.UnsupportedEncodingException;
+import java.io.*;
 import java.math.BigInteger;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.security.KeyFactory;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.spec.InvalidKeySpecException;
+import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.RSAPublicKeySpec;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Base64;
 import java.util.Date;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -99,7 +93,7 @@ public class AppleAuthService {
         return new GetAccessToken(getAccessTokenResponse.getTokenResponse().getAccess_token());
     }
 
-    private String getClientSecret() throws IOException {
+    private String getClientSecret() throws IOException, NoSuchAlgorithmException, InvalidKeySpecException {
         Date expiration = Date.from(LocalDateTime.now().plusDays(secretExp).atZone(ZoneId.systemDefault()).toInstant());
 
         return Jwts.builder()
@@ -114,14 +108,20 @@ public class AppleAuthService {
                 .compact();
     }
 
-    private PrivateKey getPrivateKey() throws IOException {
-        ClassPathResource resource = new ClassPathResource(p8URL);
-        String privateKey = new String(Files.readAllBytes(Paths.get(resource.getURI())));
-        Reader pemReader = new StringReader(privateKey);
-        PEMParser pemParser = new PEMParser(pemReader);
-        JcaPEMKeyConverter converter = new JcaPEMKeyConverter();
-        PrivateKeyInfo object = (PrivateKeyInfo) pemParser.readObject();
-        return converter.getPrivateKey(object);
+    private PrivateKey getPrivateKey() throws IOException, NoSuchAlgorithmException, InvalidKeySpecException {
+        InputStream privateKey = new ClassPathResource(p8URL).getInputStream();
+
+        String result = new BufferedReader(new InputStreamReader(privateKey)).lines().collect(Collectors.joining("\n"));
+
+        String key = result.replace("-----BEGIN PRIVATE KEY-----\n", "")
+                .replace("-----END PRIVATE KEY-----", "");
+
+        byte[] encoded = Base64.getMimeDecoder().decode(key);
+
+        PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(encoded);
+        KeyFactory keyFactory = KeyFactory.getInstance("EC");
+
+        return keyFactory.generatePrivate(keySpec);
     }
 
     /**
