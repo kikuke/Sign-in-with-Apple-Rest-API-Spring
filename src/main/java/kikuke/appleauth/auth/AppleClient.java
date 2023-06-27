@@ -27,7 +27,7 @@ public class AppleClient {
                 .build();
 
         ResponseEntity<JWKSet> responseEntity = webClient.get()
-                .uri("/token")
+                .uri("/keys")
                 .retrieve()
                 .toEntity(JWKSet.class)
                 .block();
