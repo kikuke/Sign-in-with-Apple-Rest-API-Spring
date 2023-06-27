@@ -48,7 +48,7 @@ public class AppleClient {
 
         ResponseEntity<String> responseEntity = webClient.post()
                 .uri("/token")
-                .header("Content-Type: application/x-www-form-urlencoded")
+                .header("content-type: application/x-www-form-urlencoded")
                 .bodyValue(getTokensRequestBody)
                 .retrieve()
                 .toEntity(String.class)
